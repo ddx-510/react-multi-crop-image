@@ -1,0 +1,48 @@
+{
+  "name": "react-multi-crop-image",
+  "version": "1.1.2",
+  "description": "Fast and Latest React component for multiple cropping areas, TypeScript ready",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src/**/*.{ts,tsx}",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-dom": ">=16.8.0"
+  },
+  "dependencies": {
+    "interactjs": "^1.10.17",
+    "ramda": "^0.29.0"
+  },
+  "devDependencies": {
+    "@types/ramda": "^0.29.0",
+    "@types/react": "^18.0.0",
+    "@types/shortid": "^0.0.29",
+    "typescript": "^4.9.0"
+  },
+  "keywords": [
+    "react",
+    "crop",
+    "image",
+    "multiple",
+    "selection"
+  ],
+  "author": "ddx-510",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ddx-510/react-multi-crop-image.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ddx-510/react-multi-crop-image/issues"
+  },
+  "homepage": "https://github.com/ddx-510/react-multi-crop-image#readme",
+  "license": "MIT"
+}
