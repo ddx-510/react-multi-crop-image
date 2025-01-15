@@ -111,6 +111,11 @@ MIT
 
 ## Changelog
 
+### [1.1.4] - 2025-01-15
+
+#### Added
+- Readme with demo
+
 ### [1.1.3] - 2025-01-14
 
 #### Added
