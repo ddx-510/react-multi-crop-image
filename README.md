@@ -14,6 +14,8 @@ It has lastest support and more complete functionalities with improved performan
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/ddx-510/react-multi-crop-image/pulls)
 
 
+![demo using the component (the left side is the MultiCrops component, the right side is using the cropped images from the component)](20250115162853_rec_.gif)
+
 ## Installation
 
 ```bash
