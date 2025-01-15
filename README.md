@@ -62,6 +62,7 @@ The `MultiCrops` component allows users to create, manage, and export multiple c
 | `setCroppedImages`        | `React.Dispatch<React.SetStateAction<string[]>>`                                   | Yes      | A state setter function to store the data URLs of the cropped images.                                                                                                   |
 | `crossOrigin`             | `"" \| "anonymous" \| "use-credentials"`                                           | Yes      | Specifies the cross-origin behavior of the image. Use `""` for no cross-origin, `"anonymous"` for CORS-enabled images without credentials, or `"use-credentials"` for CORS with credentials. |
 | `cropStyle`               | `React.CSSProperties`                                                               | No       | Custom styles to apply to each cropping area. Overrides the default crop styles.                                                                                         |
+| `activeCropStyle`         | `React.CSSProperties`                                                               | No       | Custom styles to apply to the currently selected/active cropping area.                                                                                                   |
 | `numberIconStyle`         | `React.CSSProperties`                                                               | No       | Custom styles for the number icons displayed within each cropping area.                                                                                                 |
 | `deleteIconStyle`         | `React.CSSProperties`                                                               | No       | Custom styles for the delete icons used to remove cropping areas.                                                                                                       |
 | `deleteIconContainerStyle`| `React.CSSProperties`                                                               | No       | Custom styles for the container wrapping the delete icons.                                                                                                              |
@@ -105,6 +106,13 @@ MIT
 
 
 ## Changelog
+
+### [1.1.3] - 2025-01-14
+
+#### Added
+- lodash to improve performance
+- new active and inactive management
+- new active and inactive crop styles
 
 ### [1.1.2] - 2024-11-14
 
