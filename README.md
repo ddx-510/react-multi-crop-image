@@ -1,8 +1,10 @@
-# React Image Multi-Crops
+# React Multi Crop Image
 
 A React component that allows users to draw multiple crop regions on an image.
 
 It was built and improved based on [react-multi-crops](https://github.com/beizhedenglong/react-multi-crops).
+
+It has lastest support and more complete functionalities with improved performance
 
 [![npm version](https://img.shields.io/npm/v/react-multi-crop-image.svg)](https://www.npmjs.com/package/react-multi-crop-image)
 [![npm downloads](https://img.shields.io/npm/dm/react-multi-crop-image.svg)](https://www.npmjs.com/package/react-multi-crop-image)
