@@ -67,20 +67,20 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
         .filter(coord => coord.width >= 10 && coord.height >= 10)
         .map((coord) => {
           const canvas = document.createElement('canvas');
-          canvas.width = coord.width;
-          canvas.height = coord.height;
+          canvas.width = Math.round(coord.width * scaleX);
+          canvas.height = Math.round(coord.height * scaleY);
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(
               imgElement,
-              coord.x * scaleX,
-              coord.y * scaleY,
-              coord.width * scaleX,
-              coord.height * scaleY,
+              Math.round(coord.x * scaleX),
+              Math.round(coord.y * scaleY),
+              Math.round(coord.width * scaleX),
+              Math.round(coord.height * scaleY),
               0,
               0,
-              coord.width,
-              coord.height
+              Math.round(coord.width * scaleX),
+              Math.round(coord.height * scaleY)
             );
           }
           return canvas.toDataURL('image/png');

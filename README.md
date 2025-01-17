@@ -111,6 +111,11 @@ MIT
 
 ## Changelog
 
+### [1.1.5] - 2025-01-17
+
+#### Fixed
+- Higher resolution image
+
 ### [1.1.4] - 2025-01-15
 
 #### Added
