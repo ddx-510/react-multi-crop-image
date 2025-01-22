@@ -111,6 +111,12 @@ MIT
 
 ## Changelog
 
+### [1.1.6] - 2025-01-21
+
+#### Added
+- allow scrollable container
+- change crosshair style
+
 ### [1.1.5] - 2025-01-17
 
 #### Fixed

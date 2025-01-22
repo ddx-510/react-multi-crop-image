@@ -239,7 +239,15 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
       onMouseDown={handleContainerMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      style={{ position: 'relative', width: 'fit-content', height: 'fit-content', border: '1px solid black', overflow: 'hidden', userSelect: 'none' }}
+      style={{
+        position: 'relative',
+        width: 'fit-content',
+        maxHeight: '90vh',
+        border: '1px solid black',
+        overflow: 'auto',
+        userSelect: 'none',
+        cursor: 'crosshair'
+      }}
     >
       <img
         ref={imageRef}
