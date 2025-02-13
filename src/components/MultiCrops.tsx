@@ -16,8 +16,10 @@ export type CrossOrigin = "" | "anonymous" | "use-credentials";
 
 export interface MultiCropsProps {
   imageUrl: string;
-  setCroppedImages: React.Dispatch<React.SetStateAction<string[]>>
-  crossOrigin: CrossOrigin
+  setCroppedImages: React.Dispatch<React.SetStateAction<string[]>>;
+  crossOrigin: CrossOrigin;
+  coordinates?: Coordinate[];
+  onCoordinatesChange?: (coordinates: Coordinate[]) => void;
   cropStyle?: React.CSSProperties;
   activeCropStyle?: React.CSSProperties;
   numberIconStyle?: React.CSSProperties;
@@ -39,10 +41,32 @@ const activeCropStyles: React.CSSProperties = {
 }
 
 const MultiCrops: React.FC<MultiCropsProps> = ({
-  imageUrl, setCroppedImages, crossOrigin,
-  cropStyle, activeCropStyle, numberIconStyle, deleteIconStyle, deleteIconContainerStyle
+  imageUrl, 
+  setCroppedImages, 
+  crossOrigin,
+  coordinates: externalCoordinates,
+  onCoordinatesChange,
+  cropStyle, 
+  activeCropStyle, 
+  numberIconStyle, 
+  deleteIconStyle, 
+  deleteIconContainerStyle
 }) => {
-  const [coordinates, setCoordinates] = useState<Coordinate[]>([]);
+  const [internalCoordinates, setInternalCoordinates] = useState<Coordinate[]>([]);
+  
+  // Use external coordinates if provided, otherwise use internal state
+  const coordinates = externalCoordinates ?? internalCoordinates;
+  const setCoordinates = (newCoords: Coordinate[] | ((prev: Coordinate[]) => Coordinate[])) => {
+    if (externalCoordinates) {
+      // If external coordinates are provided, only call onCoordinatesChange
+      const nextCoords = typeof newCoords === 'function' ? newCoords(coordinates) : newCoords;
+      onCoordinatesChange?.(nextCoords);
+    } else {
+      // Otherwise update internal state
+      setInternalCoordinates(newCoords);
+    }
+  };
+
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -232,6 +256,11 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
       debouncedSaveCroppedImages.cancel();
     };
   }, []);
+
+  // Add effect to handle coordinates changes
+  useEffect(() => {
+    onCoordinatesChange?.(coordinates);
+  }, [coordinates, onCoordinatesChange]);
 
   return (
     <div

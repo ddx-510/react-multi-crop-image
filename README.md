@@ -111,6 +111,17 @@ MIT
 
 ## Changelog
 
+### [1.1.9] - 2025-02-12
+
+#### Added
+- expose coordinates to external coordinates handling
+
+### [1.1.8] - 2025-02-12
+
+#### Added
+- Add initial coordinates
+- Add `onCoordinatesChange` callback
+
 ### [1.1.7] - 2025-02-12
 
 #### Fixed
