@@ -93,12 +93,12 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
   const handleContainerMouseDown = (e: React.MouseEvent) => {
     if (e.target === containerRef.current) {
       setActiveCropId(null);
-      if (e.target !== containerRef.current) return; // Ensure the event is on the container, not a crop
+      if (e.target !== containerRef.current) return;
       const rect = containerRef.current?.getBoundingClientRect();
       if (rect) {
         setStartPoint({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
+          x: e.clientX - rect.left + containerRef.current.scrollLeft,
+          y: e.clientY - rect.top + containerRef.current.scrollTop,
         });
         setIsDrawing(true);
       }
@@ -110,8 +110,8 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
 
     const rect = containerRef.current?.getBoundingClientRect();
     if (rect) {
-      const currentX = e.clientX - rect.left;
-      const currentY = e.clientY - rect.top;
+      const currentX = e.clientX - rect.left + (containerRef.current?.scrollLeft ?? 0);
+      const currentY = e.clientY - rect.top + (containerRef.current?.scrollTop ?? 0);
 
       const newCrop: Coordinate = {
         x: Math.min(startPoint.x, currentX),

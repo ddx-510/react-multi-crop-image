@@ -111,6 +111,11 @@ MIT
 
 ## Changelog
 
+### [1.1.7] - 2025-02-12
+
+#### Fixed
+- Fixed the issue where the crop area was not being properly handled when the container was scrollable
+
 ### [1.1.6] - 2025-01-21
 
 #### Added
