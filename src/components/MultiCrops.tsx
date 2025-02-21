@@ -97,29 +97,48 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
         const newCroppedImages = currentCoordinates
           .filter(coord => coord.width >= 10 && coord.height >= 10)
           .map((coord) => {
+            // Calculate original dimensions at full scale
+            const originalWidth = Math.round(coord.width * scaleX);
+            const originalHeight = Math.round(coord.height * scaleY);
+
+            // Set maximum dimension (adjust this value as needed)
+            const MAX_DIMENSION = 800;
+
+            // Calculate scaling factor if image exceeds maximum dimension
+            let outputScale = 1;
+            if (originalWidth > MAX_DIMENSION || originalHeight > MAX_DIMENSION) {
+              outputScale = MAX_DIMENSION / Math.max(originalWidth, originalHeight);
+            }
+
+            // Create canvas with optimized dimensions
             const canvas = document.createElement('canvas');
-            canvas.width = Math.round(coord.width * scaleX);
-            canvas.height = Math.round(coord.height * scaleY);
+            canvas.width = Math.round(originalWidth * outputScale);
+            canvas.height = Math.round(originalHeight * outputScale);
+            
             const ctx = canvas.getContext('2d');
             if (ctx) {
+              // Enable image smoothing for better quality
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+
               ctx.drawImage(
                 imgElement,
                 Math.round(coord.x * scaleX),
                 Math.round(coord.y * scaleY),
-                Math.round(coord.width * scaleX),
-                Math.round(coord.height * scaleY),
+                originalWidth,
+                originalHeight,
                 0,
                 0,
-                Math.round(coord.width * scaleX),
-                Math.round(coord.height * scaleY)
+                canvas.width,
+                canvas.height
               );
             }
-            return canvas.toDataURL('image/png');
+            return canvas.toDataURL('image/jpeg');
           });
 
         setCroppedImages(newCroppedImages);
       };
-    }, 500) // Increased debounce time
+    }, 500)
   ).current;
 
   const handleContainerMouseDown = (e: React.MouseEvent) => {
