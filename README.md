@@ -113,10 +113,9 @@ MIT
 
 ## Changelog
 
-### [1.2.3] - 2025-02-21
+### [1.2.6] - 2025-02-21
 
 #### Added
-- Add lazy loading to the image
 - Add scrollable cropping
 - Improve performance
 

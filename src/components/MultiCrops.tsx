@@ -1,8 +1,8 @@
 // src/components/MultiCrop.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import interact from 'interactjs';
 import { DeleteIcon, NumberIcon } from './Icons'; // Import the icons
-import { debounce } from 'lodash'; // You'll need to install lodash if not already present
+import { debounce, throttle } from 'lodash'; // You'll need to install lodash if not already present
 
 export interface Coordinate {
   x: number;
@@ -81,42 +81,45 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
   // Update the debounced function to use current coordinates
   const debouncedSaveCroppedImages = useRef(
     debounce((currentCoordinates: Coordinate[]) => {
-      const imgElement = imageRef.current;
-      if (!imgElement) return;
+      const imgElement = new Image();
+      imgElement.crossOrigin = crossOrigin;
+      imgElement.src = imageUrl;
 
-      const naturalWidth = imgElement.naturalWidth;
-      const naturalHeight = imgElement.naturalHeight;
-      const displayedWidth = imgElement.width;
-      const displayedHeight = imgElement.height;
+      imgElement.onload = () => {
+        const naturalWidth = imgElement.naturalWidth;
+        const naturalHeight = imgElement.naturalHeight;
+        const displayedWidth = imageRef.current?.width || naturalWidth;
+        const displayedHeight = imageRef.current?.height || naturalHeight;
 
-      const scaleX = naturalWidth / displayedWidth;
-      const scaleY = naturalHeight / displayedHeight;
+        const scaleX = naturalWidth / displayedWidth;
+        const scaleY = naturalHeight / displayedHeight;
 
-      const newCroppedImages = currentCoordinates
-        .filter(coord => coord.width >= 10 && coord.height >= 10)
-        .map((coord) => {
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.round(coord.width * scaleX);
-          canvas.height = Math.round(coord.height * scaleY);
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(
-              imgElement,
-              Math.round(coord.x * scaleX),
-              Math.round(coord.y * scaleY),
-              Math.round(coord.width * scaleX),
-              Math.round(coord.height * scaleY),
-              0,
-              0,
-              Math.round(coord.width * scaleX),
-              Math.round(coord.height * scaleY)
-            );
-          }
-          return canvas.toDataURL('image/png');
-        });
+        const newCroppedImages = currentCoordinates
+          .filter(coord => coord.width >= 10 && coord.height >= 10)
+          .map((coord) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.round(coord.width * scaleX);
+            canvas.height = Math.round(coord.height * scaleY);
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(
+                imgElement,
+                Math.round(coord.x * scaleX),
+                Math.round(coord.y * scaleY),
+                Math.round(coord.width * scaleX),
+                Math.round(coord.height * scaleY),
+                0,
+                0,
+                Math.round(coord.width * scaleX),
+                Math.round(coord.height * scaleY)
+              );
+            }
+            return canvas.toDataURL('image/png');
+          });
 
-      setCroppedImages(newCroppedImages);
-    }, 300)
+        setCroppedImages(newCroppedImages);
+      };
+    }, 500) // Increased debounce time
   ).current;
 
   const handleContainerMouseDown = (e: React.MouseEvent) => {
@@ -140,56 +143,85 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
     const container = containerRef.current;
     const rect = container.getBoundingClientRect();
     
-    // Calculate distances from edges
-    const distanceFromRight = rect.right - clientX;
-    const distanceFromBottom = rect.bottom - clientY;
-    const distanceFromLeft = clientX - rect.left;
-    const distanceFromTop = clientY - rect.top;
-
-    // Clear existing interval
     if (scrollInterval.current) {
       clearInterval(scrollInterval.current);
       scrollInterval.current = null;
     }
 
-    // Set up new scroll interval if near edges
-    scrollInterval.current = setInterval(() => {
-      if (distanceFromRight < scrollThreshold) {
+    const scrollFrame = () => {
+      if (!containerRef.current) return;
+      const currentRect = container.getBoundingClientRect();
+      
+      // Calculate distances from edges relative to current mouse position
+      const distanceFromRight = currentRect.right - clientX;
+      const distanceFromBottom = currentRect.bottom - clientY;
+      const distanceFromLeft = clientX - currentRect.left;
+      const distanceFromTop = clientY - currentRect.top;
+      
+      let shouldContinue = false;
+
+      if (distanceFromRight < scrollThreshold && container.scrollLeft < container.scrollWidth - container.clientWidth) {
         container.scrollLeft += scrollSpeed;
-      } else if (distanceFromLeft < scrollThreshold) {
+        shouldContinue = true;
+      } else if (distanceFromLeft < scrollThreshold && container.scrollLeft > 0) {
         container.scrollLeft -= scrollSpeed;
+        shouldContinue = true;
       }
       
-      if (distanceFromBottom < scrollThreshold) {
+      if (distanceFromBottom < scrollThreshold && container.scrollTop < container.scrollHeight - container.clientHeight) {
         container.scrollTop += scrollSpeed;
-      } else if (distanceFromTop < scrollThreshold) {
+        shouldContinue = true;
+      } else if (distanceFromTop < scrollThreshold && container.scrollTop > 0) {
         container.scrollTop -= scrollSpeed;
+        shouldContinue = true;
       }
-    }, 50);
+
+      if (shouldContinue) {
+        scrollInterval.current = setTimeout(scrollFrame, 16); // ~60fps
+      }
+    };
+
+    scrollFrame();
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDrawing || !startPoint) return;
+  // Memoize style combinations
+  const combinedDefaultStyles = useMemo(() => ({
+    ...defaultCropStyles,
+    ...cropStyle
+  }), [cropStyle]);
 
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (rect) {
-      // Handle scrolling
-      handleScroll(e.clientX, e.clientY);
+  const combinedActiveStyles = useMemo(() => ({
+    ...activeCropStyles,
+    ...activeCropStyle,
+    ...cropStyle
+  }), [activeCropStyle, cropStyle]);
 
-      const currentX = e.clientX - rect.left + (containerRef.current?.scrollLeft ?? 0);
-      const currentY = e.clientY - rect.top + (containerRef.current?.scrollTop ?? 0);
+  // Update handleMouseMove to be more performant
+  const handleMouseMove = useCallback(
+    throttle((e: React.MouseEvent) => {
+      if (!isDrawing || !startPoint) return;
+      requestAnimationFrame(() => {
+        const rect = containerRef.current?.getBoundingClientRect();
+        if (rect) {
+          handleScroll(e.clientX, e.clientY);
 
-      const newCrop: Coordinate = {
-        x: Math.min(startPoint.x, currentX),
-        y: Math.min(startPoint.y, currentY),
-        width: Math.abs(currentX - startPoint.x),
-        height: Math.abs(currentY - startPoint.y),
-        id: 'temp',
-      };
+          const currentX = e.clientX - rect.left + (containerRef.current?.scrollLeft ?? 0);
+          const currentY = e.clientY - rect.top + (containerRef.current?.scrollTop ?? 0);
 
-      setCoordinates((prev) => [...prev.filter((c) => c.id !== 'temp'), newCrop]);
-    }
-  };
+          const newCrop: Coordinate = {
+            x: Math.min(startPoint.x, currentX),
+            y: Math.min(startPoint.y, currentY),
+            width: Math.abs(currentX - startPoint.x),
+            height: Math.abs(currentY - startPoint.y),
+            id: 'temp',
+          };
+
+          setCoordinates((prev) => [...prev.filter((c) => c.id !== 'temp'), newCrop]);
+        }
+      });
+    }, 32), // Reduced to ~30fps for better performance
+    [isDrawing, startPoint, setCoordinates]
+  );
 
   const handleMouseUp = () => {
     if (scrollInterval.current) {
@@ -325,6 +357,36 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
     };
   }, []);
 
+  // Memoize the crop components to prevent unnecessary re-renders
+  const cropElements = useMemo(() => 
+    coordinates.map((coordinate, index) => (
+      <div
+        key={coordinate.id}
+        id={coordinate.id}
+        onMouseDown={(e) => handleCropMouseDown(e, coordinate.id)}
+        style={{
+          ...(coordinate.id === activeCropId ? combinedActiveStyles : combinedDefaultStyles),
+          position: 'absolute',
+          top: coordinate.y,
+          left: coordinate.x,
+          width: coordinate.width,
+          height: coordinate.height,
+          zIndex: coordinate.id === activeCropId ? 1000 : 1,
+          cursor: coordinate.id === activeCropId ? 'move' : 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        <DeleteIcon 
+          onClick={() => deleteCrop(coordinate.id)} 
+          deleteIconStyle={deleteIconStyle} 
+          deleteIconContainerStyle={deleteIconContainerStyle} 
+        />
+        <NumberIcon number={index + 1} numberIconStyle={numberIconStyle} />
+      </div>
+    )),
+    [coordinates, activeCropId, combinedActiveStyles, combinedDefaultStyles, deleteIconStyle, deleteIconContainerStyle, numberIconStyle]
+  );
+
   return (
     <div
       ref={containerRef}
@@ -343,33 +405,12 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
     >
       <img
         ref={imageRef}
-        src={imageUrl}
+        src={imageUrl} // Use original image for display
         alt="Background"
         style={{ display: 'block', maxWidth: '100%', height: 'auto', pointerEvents: 'none', userSelect: 'none' }}
-        crossOrigin={imageUrl.startsWith('http') ? crossOrigin : undefined}
+        crossOrigin={crossOrigin}
       />
-      {coordinates.map((coordinate, index) => (
-        <div
-          key={coordinate.id}
-          id={coordinate.id}
-          onMouseDown={(e) => handleCropMouseDown(e, coordinate.id)}
-          style={{
-            ...(coordinate.id === activeCropId ? {...activeCropStyles, ...activeCropStyle} : defaultCropStyles),
-            ...cropStyle,
-            position: 'absolute',
-            top: coordinate.y,
-            left: coordinate.x,
-            width: coordinate.width,
-            height: coordinate.height,
-            zIndex: coordinate.id === activeCropId ? 1000 : 1,
-            cursor: coordinate.id === activeCropId ? 'move' : 'pointer',
-            userSelect: 'none',
-          }}
-        >
-          <DeleteIcon onClick={() => deleteCrop(coordinate.id)} deleteIconStyle={deleteIconStyle} deleteIconContainerStyle={deleteIconContainerStyle} />
-          <NumberIcon number={index + 1} numberIconStyle={numberIconStyle} />
-        </div>
-      ))}
+      {cropElements}
     </div>
   );
 };
