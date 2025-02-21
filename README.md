@@ -113,7 +113,7 @@ MIT
 
 ## Changelog
 
-### [1.2.7] - 2025-02-21
+### [1.2.8] - 2025-02-21
 
 #### Added
 - Improve cropped image size

@@ -101,23 +101,12 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
             const originalWidth = Math.round(coord.width * scaleX);
             const originalHeight = Math.round(coord.height * scaleY);
 
-            // Set maximum dimension (adjust this value as needed)
-            const MAX_DIMENSION = 800;
-
-            // Calculate scaling factor if image exceeds maximum dimension
-            let outputScale = 1;
-            if (originalWidth > MAX_DIMENSION || originalHeight > MAX_DIMENSION) {
-              outputScale = MAX_DIMENSION / Math.max(originalWidth, originalHeight);
-            }
-
-            // Create canvas with optimized dimensions
             const canvas = document.createElement('canvas');
-            canvas.width = Math.round(originalWidth * outputScale);
-            canvas.height = Math.round(originalHeight * outputScale);
+            canvas.width = originalWidth;
+            canvas.height = originalHeight;
             
             const ctx = canvas.getContext('2d');
             if (ctx) {
-              // Enable image smoothing for better quality
               ctx.imageSmoothingEnabled = true;
               ctx.imageSmoothingQuality = 'high';
 
@@ -129,11 +118,11 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
                 originalHeight,
                 0,
                 0,
-                canvas.width,
-                canvas.height
+                originalWidth,
+                originalHeight
               );
             }
-            return canvas.toDataURL('image/jpeg');
+            return canvas.toDataURL('image/jpeg', 0.95);
           });
 
         setCroppedImages(newCroppedImages);
