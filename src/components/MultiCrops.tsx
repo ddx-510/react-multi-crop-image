@@ -1,5 +1,5 @@
 // src/components/MultiCrop.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import interact from 'interactjs';
 import { DeleteIcon, NumberIcon } from './Icons'; // Import the icons
 import { debounce } from 'lodash'; // You'll need to install lodash if not already present
@@ -73,46 +73,78 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
   const imageRef = useRef<HTMLImageElement>(null);
   const [activeCropId, setActiveCropId] = useState<string | null>(null);
 
-  // Update the debounced function to use current coordinates
-  const debouncedSaveCroppedImages = useRef(
-    debounce((currentCoordinates: Coordinate[]) => {
-      const imgElement = imageRef.current;
-      if (!imgElement) return;
+  // Add new state for transform scale
+  const [scale, setScale] = useState({ x: 1, y: 1 });
 
+  // Add new state and refs for auto-scrolling
+  const scrollInterval = useRef<number | null>(null);
+  const scrollSpeed = 10; // pixels per frame
+  const scrollThreshold = 50; // pixels from edge to trigger scroll
+
+  // Add new state for viewport tracking
+  const [viewport, setViewport] = useState({
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0
+  });
+
+  // Update the useEffect that calculates cropped images to include scale calculation
+  useEffect(() => {
+    const imgElement = imageRef.current;
+    if (imgElement) {
       const naturalWidth = imgElement.naturalWidth;
       const naturalHeight = imgElement.naturalHeight;
       const displayedWidth = imgElement.width;
       const displayedHeight = imgElement.height;
 
-      const scaleX = naturalWidth / displayedWidth;
-      const scaleY = naturalHeight / displayedHeight;
+      setScale({
+        x: naturalWidth / displayedWidth,
+        y: naturalHeight / displayedHeight
+      });
+    }
+  }, [imageUrl]);
+
+  // Update the debounced function to use scale from state instead of recalculating
+  const debouncedSaveCroppedImages = useRef(
+    debounce((currentCoordinates: Coordinate[]) => {
+      const imgElement = imageRef.current;
+      if (!imgElement) return;
 
       const newCroppedImages = currentCoordinates
         .filter(coord => coord.width >= 10 && coord.height >= 10)
         .map((coord) => {
           const canvas = document.createElement('canvas');
-          canvas.width = Math.round(coord.width * scaleX);
-          canvas.height = Math.round(coord.height * scaleY);
+          canvas.width = Math.round(coord.width * scale.x);
+          canvas.height = Math.round(coord.height * scale.y);
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.drawImage(
               imgElement,
-              Math.round(coord.x * scaleX),
-              Math.round(coord.y * scaleY),
-              Math.round(coord.width * scaleX),
-              Math.round(coord.height * scaleY),
+              Math.round(coord.x * scale.x),
+              Math.round(coord.y * scale.y),
+              Math.round(coord.width * scale.x),
+              Math.round(coord.height * scale.y),
               0,
               0,
-              Math.round(coord.width * scaleX),
-              Math.round(coord.height * scaleY)
+              Math.round(coord.width * scale.x),
+              Math.round(coord.height * scale.y)
             );
           }
           return canvas.toDataURL('image/png');
         });
 
       setCroppedImages(newCroppedImages);
-    }, 300)
+    }, 500) // Increased debounce timeout
   ).current;
+
+  // Add cleanup function for scroll interval
+  const clearScrollInterval = () => {
+    if (scrollInterval.current) {
+      window.clearInterval(scrollInterval.current);
+      scrollInterval.current = null;
+    }
+  };
 
   const handleContainerMouseDown = (e: React.MouseEvent) => {
     if (e.target === containerRef.current) {
@@ -132,24 +164,56 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDrawing || !startPoint) return;
 
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (rect) {
-      const currentX = e.clientX - rect.left + (containerRef.current?.scrollLeft ?? 0);
-      const currentY = e.clientY - rect.top + (containerRef.current?.scrollTop ?? 0);
+    const container = containerRef.current;
+    const rect = container?.getBoundingClientRect();
+    if (!rect || !container) return;
 
-      const newCrop: Coordinate = {
-        x: Math.min(startPoint.x, currentX),
-        y: Math.min(startPoint.y, currentY),
-        width: Math.abs(currentX - startPoint.x),
-        height: Math.abs(currentY - startPoint.y),
-        id: 'temp', // Temporary ID for drawing
-      };
+    const currentX = e.clientX - rect.left + container.scrollLeft;
+    const currentY = e.clientY - rect.top + container.scrollTop;
 
-      setCoordinates((prev) => [...prev.filter((c) => c.id !== 'temp'), newCrop]);
+    // Check if mouse is near bottom or top edge
+    const mouseY = e.clientY - rect.top;
+    
+    // Clear existing interval
+    clearScrollInterval();
+
+    // Start auto-scroll if near edges
+    if (mouseY > rect.height - scrollThreshold) {
+      // Near bottom - scroll down
+      scrollInterval.current = window.setInterval(() => {
+        container.scrollTop += scrollSpeed;
+        // Update crop coordinates after scroll
+        updateDrawingCoordinates(currentX, currentY + scrollSpeed);
+      }, 16); // ~60fps
+    } else if (mouseY < scrollThreshold) {
+      // Near top - scroll up
+      scrollInterval.current = window.setInterval(() => {
+        container.scrollTop -= scrollSpeed;
+        // Update crop coordinates after scroll
+        updateDrawingCoordinates(currentX, currentY - scrollSpeed);
+      }, 16);
     }
+
+    updateDrawingCoordinates(currentX, currentY);
   };
 
+  // Helper function to update coordinates while drawing
+  const updateDrawingCoordinates = (currentX: number, currentY: number) => {
+    if (!startPoint) return;
+    const newCrop: Coordinate = {
+      x: Math.min(startPoint.x, currentX),
+      y: Math.min(startPoint.y, currentY),
+      width: Math.abs(currentX - startPoint.x),
+      height: Math.abs(currentY - startPoint.y),
+      id: 'temp',
+    };
+
+    setCoordinates((prev) => [...prev.filter((c) => c.id !== 'temp'), newCrop]);
+  };
+
+  // Update handleMouseUp to clear scroll interval
   const handleMouseUp = () => {
+    clearScrollInterval();
     if (isDrawing && startPoint) {
       setCoordinates((prev) => {
         const newCoordinates = prev.map((c) =>
@@ -183,6 +247,7 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
     bringToFront(id);
   };
 
+  // Update the useEffect for interact.js to use requestAnimationFrame
   useEffect(() => {
     coordinates.forEach((coordinate) => {
       const cropElement = document.getElementById(coordinate.id);
@@ -190,20 +255,17 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
         if (coordinate.id === activeCropId || coordinate.id === 'temp') {
           interact(cropElement)
             .draggable({
-              onstart: () => {
-                bringToFront(coordinate.id);
-              },
+              onstart: () => bringToFront(coordinate.id),
               onmove: (event) => {
-                const { dx, dy } = event;
-                const imgRect = imageRef.current?.getBoundingClientRect();
-                if (imgRect) {
-                  const newX = Math.max(0, Math.min(coordinate.x + dx, imgRect.width - coordinate.width));
-                  const newY = Math.max(0, Math.min(coordinate.y + dy, imgRect.height - coordinate.height));
-                  updateCoordinate(coordinate.id, {
-                    x: newX,
-                    y: newY,
-                  });
-                }
+                requestAnimationFrame(() => {
+                  const { dx, dy } = event;
+                  const imgRect = imageRef.current?.getBoundingClientRect();
+                  if (imgRect) {
+                    const newX = Math.max(0, Math.min(coordinate.x + dx, imgRect.width - coordinate.width));
+                    const newY = Math.max(0, Math.min(coordinate.y + dy, imgRect.height - coordinate.height));
+                    updateCoordinate(coordinate.id, { x: newX, y: newY });
+                  }
+                });
               },
               onend: () => {
                 const cropElement = document.getElementById(coordinate.id);
@@ -219,7 +281,25 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
                 const { width, height } = event.rect;
                 const { left, top } = event.deltaRect;
                 const imgRect = imageRef.current?.getBoundingClientRect();
-                if (imgRect) {
+                const container = containerRef.current;
+                
+                if (!imgRect || !container) return;
+
+                // Get mouse position relative to container
+                const mouseY = event.clientY - container.getBoundingClientRect().top;
+                const scrollThreshold = 50;
+                const scrollSpeed = 5; // Reduced for smoother scrolling
+
+                // Use requestAnimationFrame for smooth scrolling
+                requestAnimationFrame(() => {
+                  if (mouseY > container.clientHeight - scrollThreshold) {
+                    const scrollDelta = scrollSpeed * ((mouseY - (container.clientHeight - scrollThreshold)) / scrollThreshold);
+                    container.scrollTop += scrollDelta;
+                  } else if (mouseY < scrollThreshold) {
+                    const scrollDelta = scrollSpeed * ((scrollThreshold - mouseY) / scrollThreshold);
+                    container.scrollTop -= scrollDelta;
+                  }
+
                   const newWidth = Math.min(width, imgRect.width - coordinate.x);
                   const newHeight = Math.min(height, imgRect.height - coordinate.y);
 
@@ -231,7 +311,7 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
                       height: newHeight,
                     });
                   }
-                }
+                });
               },
               onend: () => {
                 debouncedSaveCroppedImages(coordinates);
@@ -254,6 +334,7 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
   useEffect(() => {
     return () => {
       debouncedSaveCroppedImages.cancel();
+      clearScrollInterval();
     };
   }, []);
 
@@ -261,6 +342,37 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
   useEffect(() => {
     onCoordinatesChange?.(coordinates);
   }, [coordinates, onCoordinatesChange]);
+
+  // Update viewport on scroll
+  const handleScroll = useCallback(() => {
+    if (containerRef.current) {
+      const container = containerRef.current;
+      setViewport({
+        top: container.scrollTop,
+        bottom: container.scrollTop + container.clientHeight,
+        left: container.scrollLeft,
+        right: container.scrollLeft + container.clientWidth
+      });
+    }
+  }, []);
+
+  // Add scroll event listener
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      handleScroll(); // Initial viewport calculation
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
+
+  // Filter coordinates to only render visible crops
+  const visibleCoordinates = coordinates.filter(coord => {
+    return coord.y < viewport.bottom && 
+           (coord.y + coord.height) > viewport.top &&
+           coord.x < viewport.right &&
+           (coord.x + coord.width) > viewport.left;
+  });
 
   return (
     <div
@@ -275,17 +387,26 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
         border: '1px solid black',
         overflow: 'auto',
         userSelect: 'none',
-        cursor: 'crosshair'
+        cursor: 'crosshair',
+        willChange: 'transform' // Optimize for animations
       }}
     >
       <img
         ref={imageRef}
         src={imageUrl}
         alt="Background"
-        style={{ display: 'block', maxWidth: '100%', height: 'auto', pointerEvents: 'none', userSelect: 'none' }}
+        style={{ 
+          display: 'block', 
+          maxWidth: '100%', 
+          height: 'auto', 
+          pointerEvents: 'none', 
+          userSelect: 'none',
+          willChange: 'transform' // Optimize for animations
+        }}
         crossOrigin={imageUrl.startsWith('http') ? crossOrigin : undefined}
+        loading="lazy" // Add lazy loading
       />
-      {coordinates.map((coordinate, index) => (
+      {visibleCoordinates.map((coordinate, index) => (
         <div
           key={coordinate.id}
           id={coordinate.id}
