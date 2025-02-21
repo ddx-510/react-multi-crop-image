@@ -1,10 +1,12 @@
 # React Multi Crop Image
 
-A React component that allows users to draw multiple crop regions on an image.
+An open source project by [cc:Monet](https://www.ccmonet.ai/), an AI-powered bookkeeping platform that helps businesses automate their financial processes.
+
+A React component that allows users to draw multiple crop regions on an image. Originally developed to handle document processing and receipt scanning features at cc:Monet, this component has been improved and open-sourced for broader use.
 
 It was built and improved based on [react-multi-crops](https://github.com/beizhedenglong/react-multi-crops).
 
-It has lastest support and more complete functionalities with improved performance
+It has latest support and more complete functionalities with improved performance
 
 [![npm version](https://img.shields.io/npm/v/react-multi-crop-image.svg)](https://www.npmjs.com/package/react-multi-crop-image)
 [![npm downloads](https://img.shields.io/npm/dm/react-multi-crop-image.svg)](https://www.npmjs.com/package/react-multi-crop-image)
@@ -111,7 +113,7 @@ MIT
 
 ## Changelog
 
-### [1.2.0] - 2025-02-21
+### [1.2.3] - 2025-02-21
 
 #### Added
 - Add lazy loading to the image
