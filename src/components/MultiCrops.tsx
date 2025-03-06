@@ -78,6 +78,9 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
   const scrollSpeed = 15; // pixels per scroll
   const scrollThreshold = 50; // pixels from edge to trigger scroll
 
+  // Add new state for image loading
+  const [isImageLoaded, setIsImageLoaded] = useState(false);
+
   // Update the debounced function to use current coordinates
   const debouncedSaveCroppedImages = useRef(
     debounce((currentCoordinates: Coordinate[]) => {
@@ -303,9 +306,6 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
             .resizable({
               edges: { left: true, right: true, bottom: true, top: true },
               onmove: (event) => {
-                // Handle scrolling during resize
-                handleScroll(event.clientX, event.clientY);
-
                 const { width, height } = event.rect;
                 const { left, top } = event.deltaRect;
                 const imgRect = imageRef.current?.getBoundingClientRect();
@@ -408,17 +408,28 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
         border: '1px solid black',
         overflow: 'auto',
         userSelect: 'none',
-        cursor: 'crosshair'
+        cursor: 'crosshair',
+        willChange: 'transform'
       }}
     >
       <img
         ref={imageRef}
-        src={imageUrl} // Use original image for display
+        src={imageUrl}
         alt="Background"
-        style={{ display: 'block', maxWidth: '100%', height: 'auto', pointerEvents: 'none', userSelect: 'none' }}
+        style={{
+          display: 'block',
+          maxWidth: '100%',
+          height: 'auto',
+          pointerEvents: 'none',
+          userSelect: 'none',
+          opacity: isImageLoaded ? 1 : 0,
+          transition: 'opacity 0.3s'
+        }}
         crossOrigin={crossOrigin}
+        onLoad={() => setIsImageLoaded(true)}
+        decoding="async"
       />
-      {cropElements}
+      {isImageLoaded && cropElements}
     </div>
   );
 };

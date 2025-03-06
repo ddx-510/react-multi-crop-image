@@ -113,6 +113,11 @@ MIT
 
 ## Changelog
 
+### [1.3.0] - 2025-03-06
+
+#### Improved
+- Improve performance
+
 ### [1.2.8] - 2025-02-21
 
 #### Added
