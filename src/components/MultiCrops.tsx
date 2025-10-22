@@ -41,19 +41,19 @@ const activeCropStyles: React.CSSProperties = {
 }
 
 const MultiCrops: React.FC<MultiCropsProps> = ({
-  imageUrl, 
-  setCroppedImages, 
+  imageUrl,
+  setCroppedImages,
   crossOrigin,
   coordinates: externalCoordinates,
   onCoordinatesChange,
-  cropStyle, 
-  activeCropStyle, 
-  numberIconStyle, 
-  deleteIconStyle, 
+  cropStyle,
+  activeCropStyle,
+  numberIconStyle,
+  deleteIconStyle,
   deleteIconContainerStyle
 }) => {
   const [internalCoordinates, setInternalCoordinates] = useState<Coordinate[]>([]);
-  
+
   // Use external coordinates if provided, otherwise use internal state
   const coordinates = externalCoordinates ?? internalCoordinates;
   const setCoordinates = (newCoords: Coordinate[] | ((prev: Coordinate[]) => Coordinate[])) => {
@@ -107,7 +107,7 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
             const canvas = document.createElement('canvas');
             canvas.width = originalWidth;
             canvas.height = originalHeight;
-            
+
             const ctx = canvas.getContext('2d');
             if (ctx) {
               ctx.imageSmoothingEnabled = true;
@@ -150,10 +150,10 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
 
   const handleScroll = (clientX: number, clientY: number) => {
     if (!containerRef.current) return;
-    
+
     const container = containerRef.current;
     const rect = container.getBoundingClientRect();
-    
+
     if (scrollInterval.current) {
       clearInterval(scrollInterval.current);
       scrollInterval.current = null;
@@ -162,13 +162,13 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
     const scrollFrame = () => {
       if (!containerRef.current) return;
       const currentRect = container.getBoundingClientRect();
-      
+
       // Calculate distances from edges relative to current mouse position
       const distanceFromRight = currentRect.right - clientX;
       const distanceFromBottom = currentRect.bottom - clientY;
       const distanceFromLeft = clientX - currentRect.left;
       const distanceFromTop = clientY - currentRect.top;
-      
+
       let shouldContinue = false;
 
       if (distanceFromRight < scrollThreshold && container.scrollLeft < container.scrollWidth - container.clientWidth) {
@@ -178,7 +178,7 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
         container.scrollLeft -= scrollSpeed;
         shouldContinue = true;
       }
-      
+
       if (distanceFromBottom < scrollThreshold && container.scrollTop < container.scrollHeight - container.clientHeight) {
         container.scrollTop += scrollSpeed;
         shouldContinue = true;
@@ -280,6 +280,12 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
         if (coordinate.id === activeCropId || coordinate.id === 'temp') {
           interact(cropElement)
             .draggable({
+              autoScroll: {
+                container: containerRef.current || undefined,
+                margin: 20,
+                distance: 1,
+                speed: 300,
+              },
               onstart: () => {
                 bringToFront(coordinate.id);
               },
@@ -289,13 +295,14 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
                 if (imgRect) {
                   const newX = Math.max(0, Math.min(coordinate.x + dx, imgRect.width - coordinate.width));
                   const newY = Math.max(0, Math.min(coordinate.y + dy, imgRect.height - coordinate.height));
-                  updateCoordinate(coordinate.id, {
-                    x: newX,
-                    y: newY,
-                  });
+                  updateCoordinate(coordinate.id, { x: newX, y: newY });
                 }
               },
               onend: () => {
+                if (scrollInterval.current) {
+                  clearInterval(scrollInterval.current);
+                  scrollInterval.current = null;
+                }
                 const cropElement = document.getElementById(coordinate.id);
                 if (cropElement) {
                   cropElement.style.zIndex = '';
@@ -304,25 +311,14 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
               },
             })
             .resizable({
-              edges: { left: true, right: true, bottom: true, top: true },
-              onmove: (event) => {
-                const { width, height } = event.rect;
-                const { left, top } = event.deltaRect;
-                const imgRect = imageRef.current?.getBoundingClientRect();
-                if (imgRect) {
-                  const newWidth = Math.min(width, imgRect.width - coordinate.x);
-                  const newHeight = Math.min(height, imgRect.height - coordinate.y);
-
-                  if (newWidth >= 10 && newHeight >= 10) {
-                    updateCoordinate(coordinate.id, {
-                      x: coordinate.x + left,
-                      y: coordinate.y + top,
-                      width: newWidth,
-                      height: newHeight,
-                    });
-                  }
-                }
+              autoScroll: {
+                container: containerRef.current || undefined,
+                margin: 20,
+                distance: 1,
+                speed: 300,
               },
+              edges: { left: true, right: true, bottom: true, top: true },
+              onmove: (event) => handleResizeMove(event, coordinate),
               onend: () => {
                 if (scrollInterval.current) {
                   clearInterval(scrollInterval.current);
@@ -342,6 +338,81 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
     setCoordinates((prev) =>
       prev.map((coord) => (coord.id === id ? { ...coord, ...newCoordinate } : coord))
     );
+  };
+
+  // Helper function to calculate mouse position relative to container
+  const getMousePositionRelativeToContainer = (clientX: number, clientY: number) => {
+    const container = containerRef.current;
+    if (!container) return { x: 0, y: 0 };
+
+    const containerRect = container.getBoundingClientRect();
+    return {
+      x: clientX - containerRect.left + container.scrollLeft,
+      y: clientY - containerRect.top + container.scrollTop
+    };
+  };
+
+  // Helper function to handle resize logic
+  const handleResizeMove = (event: any, coordinate: Coordinate) => {
+    const imgRect = imageRef.current?.getBoundingClientRect();
+    const container = containerRef.current;
+    if (!imgRect || !container) return;
+
+    const clientX = event.clientX;
+    const clientY = event.clientY;
+
+    if (clientX != null && clientY != null) {
+      // Use mouse position for accurate resizing during auto-scroll
+      const { x: pointerX, y: pointerY } = getMousePositionRelativeToContainer(clientX, clientY);
+      const edges = event.edges || {};
+
+      let next = { x: coordinate.x, y: coordinate.y, width: coordinate.width, height: coordinate.height };
+
+      // Right/Bottom edges grow towards pointer
+      if (edges.right) {
+        const maxRight = imgRect.width;
+        const desiredRight = Math.min(pointerX, maxRight);
+        next.width = Math.max(10, desiredRight - next.x);
+      }
+      if (edges.bottom) {
+        const maxBottom = imgRect.height;
+        const desiredBottom = Math.min(pointerY, maxBottom);
+        next.height = Math.max(10, desiredBottom - next.y);
+      }
+
+      // Left/Top edges move origin
+      if (edges.left) {
+        const minLeft = 0;
+        const desiredLeft = Math.max(minLeft, Math.min(pointerX, next.x + next.width - 10));
+        const delta = next.x - desiredLeft;
+        next.x = desiredLeft;
+        next.width = Math.max(10, next.width + delta);
+      }
+      if (edges.top) {
+        const minTop = 0;
+        const desiredTop = Math.max(minTop, Math.min(pointerY, next.y + next.height - 10));
+        const delta = next.y - desiredTop;
+        next.y = desiredTop;
+        next.height = Math.max(10, next.height + delta);
+      }
+
+      updateCoordinate(coordinate.id, next);
+    } else {
+      // Fallback to event.rect if mouse position not available
+      const { width, height } = event.rect;
+      const { left, top } = event.deltaRect;
+      const newWidth = Math.min(width, imgRect.width - coordinate.x);
+      const newHeight = Math.min(height, imgRect.height - coordinate.y);
+
+      if (newWidth >= 10 && newHeight >= 10) {
+        updateCoordinate(coordinate.id, {
+          x: coordinate.x + left,
+          y: coordinate.y + top,
+          width: newWidth,
+          height: newHeight,
+        });
+      }
+    }
   };
 
   // Clean up the debounced function when component unmounts
@@ -366,7 +437,7 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
   }, []);
 
   // Memoize the crop components to prevent unnecessary re-renders
-  const cropElements = useMemo(() => 
+  const cropElements = useMemo(() =>
     coordinates.map((coordinate, index) => (
       <div
         key={coordinate.id}
@@ -384,10 +455,10 @@ const MultiCrops: React.FC<MultiCropsProps> = ({
           userSelect: 'none',
         }}
       >
-        <DeleteIcon 
-          onClick={() => deleteCrop(coordinate.id)} 
-          deleteIconStyle={deleteIconStyle} 
-          deleteIconContainerStyle={deleteIconContainerStyle} 
+        <DeleteIcon
+          onClick={() => deleteCrop(coordinate.id)}
+          deleteIconStyle={deleteIconStyle}
+          deleteIconContainerStyle={deleteIconContainerStyle}
         />
         <NumberIcon number={index + 1} numberIconStyle={numberIconStyle} />
       </div>
